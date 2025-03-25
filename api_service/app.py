@@ -44,10 +44,10 @@ def create_app():
     # Configure Flask app with the correct static folder
     static_folder = '../client/dist'
     
-    # Configure the app with the static folder
-    # It's important that the static_url_path is set to subpath (without /static)
-    # This ensures that all static files are served correctly from the SUBPATH
-    application = Flask(__name__, static_folder=static_folder, static_url_path=subpath)
+    # Create Flask app with proper static folder configuration
+    # NOTE: We're setting static_url_path to empty string to ensure static files 
+    # are served directly from the root/subpath without adding an extra /static segment
+    application = Flask(__name__, static_folder=static_folder, static_url_path='')
     CORS(application)
 
     # Register blueprints with proper subpath prefixes
@@ -73,25 +73,69 @@ def register_routes(app, subpath): # pylint: disable=redefined-outer-name
     """
     Register the application routes.
     """
-    # Main route with SUBPATH support
-    @app.route(f'{subpath}/', defaults={'path': ''})
+    # Create a handler that will serve index.html for our SPA routes
+    def serve_index():
+        """Serve the index.html file"""
+        logger.debug(f"Serving index.html for root path {subpath}/")
+        return send_from_directory(app.static_folder, 'index.html')
+    
+    # Register all routes that should serve the SPA
+    # Define all routes that should be handled by the SPA
+    app.add_url_rule(f'{subpath}/', 'serve_index', serve_index)
+    app.add_url_rule(f'{subpath}/requests', 'serve_requests', serve_index)
+    
+    # Also add a catch-all route for anything else that should be handled by the SPA
+    # Add routes for CSS, JS and other static files
+    @app.route(f'{subpath}/css/<path:filename>')
+    def serve_css(filename):
+        logger.debug(f"Serving CSS: {filename}")
+        return send_from_directory(os.path.join(app.static_folder, 'css'), filename)
+    
+    @app.route(f'{subpath}/js/<path:filename>')
+    def serve_js(filename):
+        logger.debug(f"Serving JS: {filename}")
+        return send_from_directory(os.path.join(app.static_folder, 'js'), filename)
+    
+    @app.route(f'{subpath}/img/<path:filename>')
+    def serve_img(filename):
+        logger.debug(f"Serving image: {filename}")
+        return send_from_directory(os.path.join(app.static_folder, 'img'), filename)
+    
+    @app.route(f'{subpath}/images/<path:filename>')
+    def serve_images(filename):
+        logger.debug(f"Serving image from images/: {filename}")
+        return send_from_directory(os.path.join(app.static_folder, 'images'), filename)
+    
+    @app.route(f'{subpath}/favicon.ico')
+    def serve_favicon():
+        logger.debug("Serving favicon.ico")
+        return send_from_directory(app.static_folder, 'favicon.ico')
+        
+    # Catch-all route for any other URL under the SUBPATH
     @app.route(f'{subpath}/<path:path>')
     def serve_frontend(path):
-        """
-        Serve the built frontend's index.html or any other static file.
-        """
-        # We don't need to reset static_folder here as it's already set correctly
-        if path == "" or not os.path.exists(os.path.join(app.static_folder, path)):
-            return send_from_directory(app.static_folder, 'index.html')
-        else:
-            # Serve the requested file (static assets like JS, CSS, images, etc.)
-            return send_from_directory(app.static_folder, path)
+        """Serve static files or redirect to index.html for SPA routes"""
+        logger.debug(f"Catch-all requested path: {path}")
+        
+        # Check if this is a static asset - we should look for these specific assets
+        for asset_dir in ['css', 'js', 'img', 'images']:
+            if path.startswith(f"{asset_dir}/"):
+                asset_path = path[len(f"{asset_dir}/"):]
+                full_asset_path = os.path.join(app.static_folder, asset_dir, asset_path)
+                if os.path.exists(full_asset_path) and os.path.isfile(full_asset_path):
+                    logger.debug(f"Serving {asset_dir} asset: {asset_path}")
+                    return send_from_directory(os.path.join(app.static_folder, asset_dir), asset_path)
+        
+        # If not a static asset or it doesn't exist, serve the SPA (index.html)
+        logger.debug(f"No static asset found, serving index.html for path: {path}")
+        return send_from_directory(app.static_folder, 'index.html')
     
     # Redirect from root to SUBPATH if SUBPATH is configured
     if subpath:
         @app.route('/')
         def redirect_to_subpath():
             """Redirect from root to SUBPATH"""
+            logger.debug(f"Redirecting from / to {subpath}/")
             return redirect(subpath + '/')
 
 app = create_app()

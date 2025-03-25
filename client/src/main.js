@@ -17,6 +17,14 @@ const app = createApp(App);
 const router = createAppRouter(subpath);
 app.use(router);
 
+// Add a utility function to build URLs with the SUBPATH
+app.config.globalProperties.$withBase = (path) => {
+  // Remove leading slash to avoid double slashes
+  const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+  // Join SUBPATH with the path
+  return subpath ? `${subpath}/${cleanPath}` : `/${cleanPath}`;
+};
+
 // For debugging
 app.config.globalProperties.$baseUrl = subpath;
 

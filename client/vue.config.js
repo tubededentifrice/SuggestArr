@@ -22,6 +22,7 @@ try {
 
 module.exports = defineConfig({
   publicPath: subpath || '/',
+  assetsDir: '',  // Don't put assets in a subdirectory
   configureWebpack: {
     plugins: [
       new webpack.DefinePlugin({
@@ -30,5 +31,16 @@ module.exports = defineConfig({
         __VUE_APP_SUBPATH__: JSON.stringify(subpath || ''),
       })
     ],
+    output: {
+      // Ensure filenames don't have cache-busting hashes for simplicity in URL handling
+      filename: 'js/[name].js',
+      chunkFilename: 'js/[name].js',
+    },
   },
+  css: {
+    extract: {
+      filename: 'css/[name].css',
+      chunkFilename: 'css/[name].css',
+    }
+  }
 });

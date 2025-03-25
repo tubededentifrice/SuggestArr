@@ -3,7 +3,7 @@ Main Flask application for managing environment variables and running processes.
 """
 from concurrent.futures import ThreadPoolExecutor
 import os
-from flask import Flask, send_from_directory, url_for
+from flask import Flask, send_from_directory, url_for, redirect
 from flask_cors import CORS
 from asgiref.wsgi import WsgiToAsgi
 import logging
@@ -41,7 +41,13 @@ def create_app():
     if AppUtils.is_last_worker():
         AppUtils.print_welcome_message() # Print only for last worker
 
-    application = Flask(__name__, static_folder='../static', static_url_path=f'{subpath}/static')
+    # Configure Flask app with the correct static folder
+    static_folder = '../client/dist'
+    
+    # Configure the app with the static folder
+    # It's important that the static_url_path is set to subpath (without /static)
+    # This ensures that all static files are served correctly from the SUBPATH
+    application = Flask(__name__, static_folder=static_folder, static_url_path=subpath)
     CORS(application)
 
     # Register blueprints with proper subpath prefixes
@@ -74,7 +80,7 @@ def register_routes(app, subpath): # pylint: disable=redefined-outer-name
         """
         Serve the built frontend's index.html or any other static file.
         """
-        app.static_folder = '../static'
+        # We don't need to reset static_folder here as it's already set correctly
         if path == "" or not os.path.exists(os.path.join(app.static_folder, path)):
             return send_from_directory(app.static_folder, 'index.html')
         else:
@@ -86,8 +92,7 @@ def register_routes(app, subpath): # pylint: disable=redefined-outer-name
         @app.route('/')
         def redirect_to_subpath():
             """Redirect from root to SUBPATH"""
-            from flask import redirect
-            return redirect(subpath)
+            return redirect(subpath + '/')
 
 app = create_app()
 asgi_app = WsgiToAsgi(app)

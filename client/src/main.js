@@ -5,8 +5,10 @@ import 'vue-toast-notification/dist/theme-bootstrap.css';
 import axios from 'axios';
 import createAppRouter from './router';
 
-// Get the SUBPATH from webpack define plugin
+// Get the SUBPATH from webpack define plugin or directly from the public path
+// Vue CLI sets __webpack_public_path__ at runtime based on publicPath in vue.config.js
 const subpath = window.__VUE_APP_SUBPATH__ || '';
+console.log(`App initialized with SUBPATH: ${subpath || '/'}`);
 
 // Create the app
 const app = createApp(App);
@@ -14,6 +16,9 @@ const app = createApp(App);
 // Create router with SUBPATH
 const router = createAppRouter(subpath);
 app.use(router);
+
+// For debugging
+app.config.globalProperties.$baseUrl = subpath;
 
 // Configure axios
 if (process.env.NODE_ENV === 'development') {

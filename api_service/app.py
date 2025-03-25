@@ -3,7 +3,7 @@ Main Flask application for managing environment variables and running processes.
 """
 from concurrent.futures import ThreadPoolExecutor
 import os
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, url_for
 from flask_cors import CORS
 from asgiref.wsgi import WsgiToAsgi
 import logging
@@ -29,35 +29,47 @@ def create_app():
     """
     Create and configure the Flask application.
     """
+    # Load environment variables first to get SUBPATH
+    env_vars = load_env_vars()
+    subpath = env_vars.get('SUBPATH') or ''
+    
+    # Strip leading/trailing slashes for consistency
+    if subpath:
+        subpath = '/' + subpath.strip('/')
+        logger.info(f"Application configured with SUBPATH: {subpath}")
 
     if AppUtils.is_last_worker():
         AppUtils.print_welcome_message() # Print only for last worker
 
-    application = Flask(__name__, static_folder='../static', static_url_path='/')
+    application = Flask(__name__, static_folder='../static', static_url_path=f'{subpath}/static')
     CORS(application)
 
-    application.register_blueprint(jellyfin_bp, url_prefix='/api/jellyfin')
-    application.register_blueprint(seer_bp, url_prefix='/api/seer')
-    application.register_blueprint(plex_bp, url_prefix='/api/plex')
-    application.register_blueprint(automation_bp, url_prefix='/api/automation')
-    application.register_blueprint(logs_bp, url_prefix='/api')
-    application.register_blueprint(config_bp, url_prefix='/api/config')
+    # Register blueprints with proper subpath prefixes
+    application.register_blueprint(jellyfin_bp, url_prefix=f'{subpath}/api/jellyfin')
+    application.register_blueprint(seer_bp, url_prefix=f'{subpath}/api/seer')
+    application.register_blueprint(plex_bp, url_prefix=f'{subpath}/api/plex')
+    application.register_blueprint(automation_bp, url_prefix=f'{subpath}/api/automation')
+    application.register_blueprint(logs_bp, url_prefix=f'{subpath}/api')
+    application.register_blueprint(config_bp, url_prefix=f'{subpath}/api/config')
+
+    # Store subpath in the app config for templates and other uses
+    application.config['SUBPATH'] = subpath
 
     # Register routes
-    register_routes(application)
+    register_routes(application, subpath)
 
     # Load environment variables at startup
     AppUtils.load_environment()
 
     return application
 
-def register_routes(app): # pylint: disable=redefined-outer-name
+def register_routes(app, subpath): # pylint: disable=redefined-outer-name
     """
     Register the application routes.
     """
-
-    @app.route('/', defaults={'path': ''})
-    @app.route('/<path:path>')
+    # Main route with SUBPATH support
+    @app.route(f'{subpath}/', defaults={'path': ''})
+    @app.route(f'{subpath}/<path:path>')
     def serve_frontend(path):
         """
         Serve the built frontend's index.html or any other static file.
@@ -68,6 +80,14 @@ def register_routes(app): # pylint: disable=redefined-outer-name
         else:
             # Serve the requested file (static assets like JS, CSS, images, etc.)
             return send_from_directory(app.static_folder, path)
+    
+    # Redirect from root to SUBPATH if SUBPATH is configured
+    if subpath:
+        @app.route('/')
+        def redirect_to_subpath():
+            """Redirect from root to SUBPATH"""
+            from flask import redirect
+            return redirect(subpath)
 
 app = create_app()
 asgi_app = WsgiToAsgi(app)

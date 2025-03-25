@@ -7,17 +7,22 @@
 - Frontend lint: `cd client && npm run lint`
 - Run tests: `cd api_service && python -m pytest`
 - Run single test: `cd api_service && python -m pytest test/test_file.py::TestClass::test_function -v`
+- Debug logs: `docker logs -f suggestarr-container`
 
 ## Code Style Guidelines
 - Python: PEP 8, docstrings with detailed param/return descriptions
 - Vue: ESLint with Vue3-essential and ESLint recommended configs
 - Python naming: snake_case for functions/variables, PascalCase for classes
 - JavaScript naming: camelCase for variables/functions, PascalCase for components
-- Error handling: Use custom exceptions from exceptions/ directory
+- Python imports: Standard lib first, then third-party, then local modules
+- Error handling: Use custom exceptions from exceptions/ directory and handle_api_errors decorator
 - Logging: Use `logger = LoggerManager.get_logger(__name__)` pattern
 
 ## Architecture Notes
 - Backend: Flask-based API with RESTful endpoints in blueprints/
 - Frontend: Vue.js 3 with component-based architecture
-- Testing: pytest for backend, unit tests with detailed assertions
+- Database: SQLite in local dev, configurable in production
+- Error responses: Follow `{message: str, type: str}` format
+- API routes: Grouped by functionality in blueprints/
 - Documentation: Include docstrings for all functions/classes
+- Authentication: JWT for API endpoints
